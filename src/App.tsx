@@ -24,7 +24,6 @@ import MotorControl from './components/MotorControl.tsx';
 import StatusBar from './components/StatusBar.tsx';
 import DynamicDataCards from './components/DynamicDataCards.tsx';
 import PlotPanel from './components/PlotPanel.tsx';
-import BatteryWarning from './components/BatteryWarning.tsx';
 import DSHOTCommands from './components/DSHOTCommands.tsx';
 
 function App() {
@@ -95,6 +94,7 @@ function App() {
   const throttleTimeoutRef = useRef<number | null>(null);
   const recordingRef = useRef(false);
   const escRunningRef = useRef(false);
+  const lastBatteryStateRef = useRef<BatteryState>(BatteryState.NORMAL);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -122,8 +122,17 @@ function App() {
 
     bleManager.setBatteryCallback((status) => {
       setBatteryStatus(status);
-      if (status.state === BatteryState.CUTOFF && escRunningRef.current) {
-        handleStop();
+      
+      // Only act on state transitions, not every update
+      if (status.state !== lastBatteryStateRef.current) {
+        lastBatteryStateRef.current = status.state;
+        
+        // When cutoff is reached, update UI to show motor stopped
+        // (Device stops automatically - no need to send command)
+        if (status.state === BatteryState.CUTOFF) {
+          setEscRunning(false);
+          escRunningRef.current = false;
+        }
       }
     });
 
@@ -252,9 +261,14 @@ function App() {
     }
   }, [escRunning, connected, bleManager]);
 
-  const handleConfigChange = (newConfig: Partial<ESCConfigPacket>) => {
+  const handleConfigChange = useCallback((newConfig: Partial<ESCConfigPacket>) => {
     const updatedConfig = { ...escConfig, ...newConfig };
     setEscConfig(updatedConfig);
+    
+    // Reset throttle to 0 whenever ESC type changes
+    if (newConfig.escType !== undefined && newConfig.escType !== escConfig.escType) {
+      handleThrottleChange(0);
+    }
     
     // Save updated config to storage if device is connected
     if (deviceId) {
@@ -268,7 +282,7 @@ function App() {
     }
     
     // Config will be sent automatically by useEffect
-  };
+  }, [escConfig, throttle, handleThrottleChange, deviceId]);
 
   const handleDshotSettingsChange = (newSettings: Partial<DSHOTDisplaySettings>) => {
     const updatedSettings = { ...dshotSettings, ...newSettings };
@@ -504,22 +518,6 @@ function App() {
         sampleCount={sampleCount}
       />
 
-      {escConfig.batteryProtectionEnabled && batteryStatus && batteryStatus.state === BatteryState.WARNING && (
-        <BatteryWarning
-          type="warning"
-          voltage={batteryStatus.voltage}
-          cutoffVoltage={totalCutoffVoltage}
-        />
-      )}
-
-      {escConfig.batteryProtectionEnabled && batteryStatus && batteryStatus.state === BatteryState.CUTOFF && (
-        <BatteryWarning
-          type="error"
-          voltage={batteryStatus.voltage}
-          cutoffVoltage={totalCutoffVoltage}
-        />
-      )}
-
       {connected && (
         <>
           <ESCControl
@@ -543,10 +541,13 @@ function App() {
             escType={escConfig.escType}
             throttle={throttle}
             onThrottleChange={handleThrottleChange}
-            running={escRunning}
+            running={escRunning && batteryStatus?.state !== BatteryState.CUTOFF}
             onStart={handleStart}
             onStop={handleStop}
             disabled={escConfig.batteryProtectionEnabled && batteryStatus?.state === BatteryState.CUTOFF}
+            batteryStatus={batteryStatus}
+            batteryProtectionEnabled={escConfig.batteryProtectionEnabled}
+            cutoffVoltage={totalCutoffVoltage}
           />
 
           <DynamicDataCards 

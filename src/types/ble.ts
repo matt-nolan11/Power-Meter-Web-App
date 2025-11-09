@@ -103,14 +103,15 @@ export interface DSHOTDisplaySettings {
   tipSpeedUnit: TipSpeedUnit;
 }
 
-// PWM Data Packet (12 bytes)
+// PWM Data Packet (13 bytes)
 export interface PWMDataPacket {
   voltage: number;      // float (4 bytes)
   current: number;      // float (4 bytes)
   throttle: number;     // float (4 bytes) - percentage
+  batteryState: BatteryState; // uint8_t (1 byte)
 }
 
-// DSHOT Data Packet (30 bytes) - PWM data + telemetry
+// DSHOT Data Packet (31 bytes) - PWM data + telemetry
 export interface DSHOTDataPacket extends PWMDataPacket {
   rpm: number;          // uint32_t (4 bytes)
   temp: number;         // uint32_t (4 bytes)
@@ -158,7 +159,8 @@ export class BLEDataParser {
     return {
       voltage: view.getFloat32(0, this.littleEndian),
       current: view.getFloat32(4, this.littleEndian),
-      throttle: view.getFloat32(8, this.littleEndian)
+      throttle: view.getFloat32(8, this.littleEndian),
+      batteryState: view.getUint8(12) as BatteryState
     };
   }
 
@@ -175,7 +177,8 @@ export class BLEDataParser {
       escCurrent: view.getUint32(20, this.littleEndian),
       temp: view.getUint16(24, this.littleEndian),
       lastStatus: view.getUint16(26, this.littleEndian),
-      stress: view.getUint16(28, this.littleEndian)
+      stress: view.getUint16(28, this.littleEndian),
+      batteryState: view.getUint8(30) as BatteryState
     };
   }
 

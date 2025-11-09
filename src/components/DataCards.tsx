@@ -40,7 +40,7 @@ const DataCards: React.FC<DataCardsProps> = ({ data, mode }) => {
           <div className="data-card-value">{power.toFixed(1)} W</div>
         </div>
         <div className="data-card">
-          <div className="data-card-label">Throttle</div>
+          <div className="data-card-label">Throttle Setpoint</div>
           <div className="data-card-value">{data.throttle.toFixed(1)}%</div>
         </div>
         

@@ -133,13 +133,21 @@ export class BLEManager {
     let data: PWMDataPacket | DSHOTDataPacket;
     
     // Parse based on packet size (handles mode transitions gracefully)
-    if (buffer.byteLength === 12) {
+    if (buffer.byteLength === 13) {
       data = BLEDataParser.parsePWMData(buffer);
-    } else if (buffer.byteLength === 30) {
+    } else if (buffer.byteLength === 31) {
       data = BLEDataParser.parseDSHOTData(buffer);
     } else {
       // Silently ignore invalid packets (can happen during mode transitions)
       return;
+    }
+
+    // Extract battery state from data packet and call battery callback
+    if (this.batteryCallback) {
+      this.batteryCallback({
+        state: data.batteryState,
+        voltage: data.voltage
+      });
     }
 
     if (this.dataCallback) {
