@@ -1,0 +1,31 @@
+"filename", "language", "Markdown", "JSON", "JSON with Comments", "TypeScript", "TypeScript JSX", "HTML", "PostCSS", "comment", "blank", "total"
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\CHANGELOG.md", "Markdown", 101, 0, 0, 0, 0, 0, 0, 0, 23, 124
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\DSHOT_COMMANDS.md", "Markdown", 302, 0, 0, 0, 0, 0, 0, 0, 76, 378
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\IMPLEMENTATION_SUMMARY.md", "Markdown", 172, 0, 0, 0, 0, 0, 0, 0, 41, 213
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\README.md", "Markdown", 69, 0, 0, 0, 0, 0, 0, 0, 28, 97
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\index.html", "HTML", 0, 0, 0, 0, 0, 13, 0, 0, 1, 14
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\package-lock.json", "JSON", 0, 3478, 0, 0, 0, 0, 0, 0, 1, 3479
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\package.json", "JSON", 0, 35, 0, 0, 0, 0, 0, 0, 1, 36
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\App.css", "PostCSS", 0, 0, 0, 0, 0, 0, 278, 0, 52, 330
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\App.tsx", "TypeScript JSX", 0, 0, 0, 0, 613, 0, 0, 30, 84, 727
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\components\BatteryWarning.tsx", "TypeScript JSX", 0, 0, 0, 0, 21, 0, 0, 0, 5, 26
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\components\DSHOTCommands.tsx", "TypeScript JSX", 0, 0, 0, 0, 170, 0, 0, 6, 12, 188
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\components\DataCards.tsx", "TypeScript JSX", 0, 0, 0, 0, 66, 0, 0, 0, 7, 73
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\components\DynamicDataCards.tsx", "TypeScript JSX", 0, 0, 0, 0, 112, 0, 0, 5, 12, 129
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\components\ESCControl.tsx", "TypeScript JSX", 0, 0, 0, 0, 324, 0, 0, 1, 16, 341
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\components\MotorControl.tsx", "TypeScript JSX", 0, 0, 0, 0, 66, 0, 0, 0, 8, 74
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\components\PlotPanel.tsx", "TypeScript JSX", 0, 0, 0, 0, 522, 0, 0, 33, 57, 612
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\components\StatusBar.tsx", "TypeScript JSX", 0, 0, 0, 0, 23, 0, 0, 0, 4, 27
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\index.css", "PostCSS", 0, 0, 0, 0, 0, 0, 19, 0, 4, 23
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\main.tsx", "TypeScript JSX", 0, 0, 0, 0, 9, 0, 0, 0, 2, 11
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\services\BLEManager.ts", "TypeScript", 0, 0, 0, 195, 0, 0, 0, 14, 44, 253
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\types\ble.ts", "TypeScript", 0, 0, 0, 179, 0, 0, 0, 15, 27, 221
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\types\dashboard.ts", "TypeScript", 0, 0, 0, 62, 0, 0, 0, 0, 6, 68
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\utils\deviceStorage.ts", "TypeScript", 0, 0, 0, 49, 0, 0, 0, 25, 11, 85
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\utils\metricUtils.ts", "TypeScript", 0, 0, 0, 87, 0, 0, 0, 0, 5, 92
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\utils\unitConversions.ts", "TypeScript", 0, 0, 0, 70, 0, 0, 0, 29, 9, 108
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\src\vite-env.d.ts", "TypeScript", 0, 0, 0, 4, 0, 0, 0, 2, 2, 8
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\tsconfig.app.json", "JSON", 0, 22, 0, 0, 0, 0, 0, 2, 3, 27
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\tsconfig.json", "JSON with Comments", 0, 0, 22, 0, 0, 0, 0, 2, 3, 27
+"c:\Users\Matt\Documents\GitHub\Power-Meter-Web-App\vite.config.ts", "TypeScript", 0, 0, 0, 10, 0, 0, 0, 1, 2, 13
+"Total", "-", 644, 3535, 22, 656, 1926, 13, 297, 165, 546, 7804
