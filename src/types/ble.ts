@@ -140,7 +140,7 @@ export interface ESCConfigPacket {
 
 // ESC Command Packet (5 bytes)
 export interface ESCCommandPacket {
-  command: number;      // uint8_t (1 byte) - 0=STOP, 1=START
+  command: number;      // uint8_t (1 byte) - 0=STOP, 1=START, 2=CONNECT, 3=DISCONNECT
   throttle: number;     // float (4 bytes) - percentage
 }
 

@@ -31,11 +31,28 @@ const MotorControl: React.FC<MotorControlProps> = ({
   
   // Disable start button if battery cutoff is active
   const isCutoffActive = batteryProtectionEnabled && batteryStatus?.state === BatteryState.CUTOFF;
+  const isESCDisconnected = disabled && !isCutoffActive; // Disabled but not due to cutoff
   const startButtonDisabled = disabled || isCutoffActive;
 
   return (
     <div className="panel" style={{ marginTop: '1rem' }}>
       <h3 className="panel-title">Motor Control</h3>
+      
+      {/* ESC Not Connected Warning */}
+      {isESCDisconnected && (
+        <div style={{ 
+          margin: '1rem', 
+          padding: '0.75rem', 
+          backgroundColor: 'rgba(100, 100, 100, 0.1)', 
+          border: '2px solid #666', 
+          borderRadius: '4px',
+          color: '#aaa',
+          textAlign: 'center',
+          fontWeight: 'bold'
+        }}>
+          ⚠️ ESC not connected - Connect ESC in configuration panel first
+        </div>
+      )}
       
       {/* Battery Status Warnings */}
       {batteryProtectionEnabled && batteryStatus && batteryStatus.state === BatteryState.WARNING && (

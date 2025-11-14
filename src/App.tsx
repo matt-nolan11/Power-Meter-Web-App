@@ -90,6 +90,7 @@ function App() {
 
   const [throttle, setThrottle] = useState(0);
   const [escRunning, setEscRunning] = useState(false);
+  const [escConnected, setEscConnected] = useState(false);
   const [escInfo, setEscInfo] = useState<DSHOTResponsePacket | null>(null);
   const throttleTimeoutRef = useRef<number | null>(null);
   const recordingRef = useRef(false);
@@ -115,9 +116,8 @@ function App() {
 
     bleManager.setDataCallback((data) => {
       setLatestData(data);
-      if (recordingRef.current) {
-        setSampleCount(prev => prev + 1);
-      }
+      // Don't increment sample count here - let PlotPanel handle it
+      // to ensure count matches actual stored data points
     });
 
     bleManager.setBatteryCallback((status) => {
@@ -234,6 +234,45 @@ function App() {
       console.error('Failed to stop ESC:', error);
     }
   }, [connected, bleManager]);
+
+  const handleConnectESC = useCallback(async () => {
+    if (!connected) return;
+
+    try {
+      const command: ESCCommandPacket = {
+        command: 2, // CONNECT
+        throttle: 0
+      };
+      await bleManager.sendCommand(command);
+      
+      setEscConnected(true);
+    } catch (error) {
+      console.error('Failed to connect ESC:', error);
+      alert('Failed to connect ESC');
+    }
+  }, [connected, bleManager]);
+
+  const handleDisconnectESC = useCallback(async () => {
+    if (!connected) return;
+
+    try {
+      // Stop motor first if running
+      if (escRunning) {
+        await handleStop();
+      }
+      
+      const command: ESCCommandPacket = {
+        command: 3, // DISCONNECT
+        throttle: 0
+      };
+      await bleManager.sendCommand(command);
+      
+      setEscConnected(false);
+      setEscRunning(false);
+    } catch (error) {
+      console.error('Failed to disconnect ESC:', error);
+    }
+  }, [connected, escRunning, handleStop, bleManager]);
 
   const handleThrottleChange = useCallback(async (newThrottle: number) => {
     setThrottle(newThrottle);
@@ -526,6 +565,9 @@ function App() {
             dshotSettings={dshotSettings}
             onDshotSettingsChange={handleDshotSettingsChange}
             running={escRunning}
+            escConnected={escConnected}
+            onConnectESC={handleConnectESC}
+            onDisconnectESC={handleDisconnectESC}
             cutoffVoltage={totalCutoffVoltage}
             warningVoltage={totalWarningVoltage}
           />
@@ -534,6 +576,7 @@ function App() {
             <DSHOTCommands
               onSendCommand={handleSendDSHOTCommand}
               escInfo={escInfo}
+              escConnected={escConnected}
             />
           )}
 
@@ -544,7 +587,7 @@ function App() {
             running={escRunning && batteryStatus?.state !== BatteryState.CUTOFF}
             onStart={handleStart}
             onStop={handleStop}
-            disabled={escConfig.batteryProtectionEnabled && batteryStatus?.state === BatteryState.CUTOFF}
+            disabled={!escConnected || (escConfig.batteryProtectionEnabled && batteryStatus?.state === BatteryState.CUTOFF)}
             batteryStatus={batteryStatus}
             batteryProtectionEnabled={escConfig.batteryProtectionEnabled}
             cutoffVoltage={totalCutoffVoltage}
@@ -573,6 +616,7 @@ function App() {
                 onUpdateLeftAxis={(metric) => handleUpdatePlotLeftAxis(plot.id, metric)}
                 onUpdateRightAxis={(metric) => handleUpdatePlotRightAxis(plot.id, metric)}
                 onDataRef={index === 0 ? (ref) => { recordedDataRef.current = ref.current; } : undefined}
+                onSampleCountUpdate={index === 0 ? (count) => setSampleCount(count) : undefined}
                 dshotSettings={dshotSettings}
               />
             );

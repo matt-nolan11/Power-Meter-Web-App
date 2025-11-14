@@ -15,6 +15,9 @@ interface ESCControlProps {
   dshotSettings: DSHOTDisplaySettings;
   onDshotSettingsChange: (settings: Partial<DSHOTDisplaySettings>) => void;
   running: boolean;
+  escConnected: boolean;
+  onConnectESC: () => void;
+  onDisconnectESC: () => void;
   cutoffVoltage: number;
   warningVoltage: number;
 }
@@ -25,6 +28,9 @@ const ESCControl: React.FC<ESCControlProps> = ({
   dshotSettings,
   onDshotSettingsChange,
   running,
+  escConnected,
+  onConnectESC,
+  onDisconnectESC,
   cutoffVoltage,
   warningVoltage
 }) => {
@@ -45,53 +51,101 @@ const ESCControl: React.FC<ESCControlProps> = ({
 
         {configExpanded && (
         <>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Mode</label>
-            <div className="radio-group">
-              <label className="radio-label">
-                <input
-                  type="radio"
-                  checked={config.mode === ESCMode.PWM}
-                  onChange={() => onConfigChange({ mode: ESCMode.PWM })}
-                  disabled={running}
-                />
-                <span>PWM</span>
-              </label>
-              <label className="radio-label">
-                <input
-                  type="radio"
-                  checked={config.mode === ESCMode.DSHOT}
-                  onChange={() => onConfigChange({ mode: ESCMode.DSHOT })}
-                  disabled={running}
-                />
-                <span>DSHOT</span>
-              </label>
+        {/* ESC Connection Section */}
+        <div className="form-group" style={{ padding: '0.75rem', backgroundColor: '#2a2a2a', borderRadius: '4px', marginBottom: '1rem' }}>
+          <label className="form-label" style={{ marginBottom: '0.75rem' }}>ESC Connection</label>
+          
+          {/* Mode and Type Settings */}
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Mode</label>
+              <div className="radio-group">
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    checked={config.mode === ESCMode.PWM}
+                    onChange={() => onConfigChange({ mode: ESCMode.PWM })}
+                    disabled={escConnected || running}
+                  />
+                  <span>PWM</span>
+                </label>
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    checked={config.mode === ESCMode.DSHOT}
+                    onChange={() => onConfigChange({ mode: ESCMode.DSHOT })}
+                    disabled={escConnected || running}
+                  />
+                  <span>DSHOT</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Type</label>
+              <div className="radio-group">
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    checked={config.escType === ESCType.UNIDIRECTIONAL}
+                    onChange={() => onConfigChange({ escType: ESCType.UNIDIRECTIONAL })}
+                    disabled={escConnected || running}
+                  />
+                  <span>Unidirectional</span>
+                </label>
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    checked={config.escType === ESCType.BIDIRECTIONAL}
+                    onChange={() => onConfigChange({ escType: ESCType.BIDIRECTIONAL })}
+                    disabled={escConnected || running}
+                  />
+                  <span>Bidirectional</span>
+                </label>
+              </div>
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Type</label>
-            <div className="radio-group">
-              <label className="radio-label">
-                <input
-                  type="radio"
-                  checked={config.escType === ESCType.UNIDIRECTIONAL}
-                  onChange={() => onConfigChange({ escType: ESCType.UNIDIRECTIONAL })}
-                  disabled={running}
-                />
-                <span>Unidirectional</span>
-              </label>
-              <label className="radio-label">
-                <input
-                  type="radio"
-                  checked={config.escType === ESCType.BIDIRECTIONAL}
-                  onChange={() => onConfigChange({ escType: ESCType.BIDIRECTIONAL })}
-                  disabled={running}
-                />
-                <span>Bidirectional</span>
-              </label>
+          {/* Safety Warning - only show when not connected */}
+          {!escConnected && (
+            <div style={{ 
+              marginTop: '1rem',
+              padding: '0.75rem', 
+              backgroundColor: 'rgba(255, 193, 7, 0.1)', 
+              border: '2px solid #ffc107', 
+              borderRadius: '4px',
+              color: '#ffc107'
+            }}>
+              <strong>⚠️ Safety Warning:</strong> Ensure Mode and Type settings match your ESC configuration before connecting.
+              Incorrect settings may cause unexpected motor behavior.
             </div>
+          )}
+
+          {/* Connect/Disconnect ESC Button */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
+            {!escConnected ? (
+              <button
+                className="button-primary"
+                onClick={onConnectESC}
+                style={{ padding: '0.75rem 2rem' }}
+              >
+                🔌 Connect ESC
+              </button>
+            ) : (
+              <button
+                className="button-secondary"
+                onClick={onDisconnectESC}
+                disabled={running}
+                style={{ 
+                  padding: '0.75rem 2rem',
+                  cursor: running ? 'not-allowed' : 'pointer',
+                  opacity: running ? 0.5 : 1
+                }}
+                title={running ? 'Stop motor before disconnecting' : undefined}
+              >
+                🔌 Disconnect ESC
+              </button>
+            )}
           </div>
         </div>
 

@@ -54,6 +54,7 @@ interface PlotPanelProps {
   onUpdateLeftAxis: (metric: MetricType | null) => void;
   onUpdateRightAxis: (metric: MetricType | null) => void;
   onDataRef?: (dataRef: React.MutableRefObject<Map<MetricType, { x: number; y: number }[]>>) => void;
+  onSampleCountUpdate?: (count: number) => void;
   dshotSettings?: DSHOTDisplaySettings;
 }
 
@@ -67,6 +68,7 @@ const PlotPanel: React.FC<PlotPanelProps> = ({
   onUpdateLeftAxis,
   onUpdateRightAxis,
   onDataRef,
+  onSampleCountUpdate,
   dshotSettings
 }) => {
   const chartRef = useRef<ChartJS<'line'>>(null);
@@ -87,6 +89,12 @@ const PlotPanel: React.FC<PlotPanelProps> = ({
   const updateCountRef = useRef(0);
   const prevRecordingRef = useRef(false); // Always start with false
   const hasResetForCurrentRecording = useRef(false); // Track if we've reset for this recording session
+  const recordingRef = useRef(false); // Local ref synced with recording prop
+
+  // Sync recording ref immediately when prop changes
+  useEffect(() => {
+    recordingRef.current = recording;
+  }, [recording]);
 
   // Pass data reference to parent on mount
   useEffect(() => {
@@ -201,7 +209,7 @@ const PlotPanel: React.FC<PlotPanelProps> = ({
 
   // Add data points when recording
   useEffect(() => {
-    if (!data || !recording) return;
+    if (!data || !recordingRef.current) return;
 
     const relativeTime = (Date.now() - startTime) / 1000;
     
@@ -222,6 +230,15 @@ const PlotPanel: React.FC<PlotPanelProps> = ({
         allMetricDataRef.current.set(metric, newData);
       }
     });
+    
+    // Update sample count based on actual stored data
+    // Use the first available metric's data length as the canonical count
+    if (onSampleCountUpdate && allMetricDataRef.current.size > 0) {
+      const firstMetricData = allMetricDataRef.current.values().next().value;
+      if (firstMetricData) {
+        onSampleCountUpdate(firstMetricData.length);
+      }
+    }
     
     // Update displayed datasets from stored data
     setChartDatasets(currentDatasets => {

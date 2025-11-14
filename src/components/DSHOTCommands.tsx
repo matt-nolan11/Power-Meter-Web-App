@@ -4,11 +4,13 @@ import { DSHOTSpecialCommand, DSHOTResponsePacket } from '../types/ble';
 interface DSHOTCommandsProps {
   onSendCommand: (command: DSHOTSpecialCommand) => Promise<void>;
   escInfo: DSHOTResponsePacket | null;
+  escConnected: boolean;
 }
 
 const DSHOTCommands: React.FC<DSHOTCommandsProps> = ({
   onSendCommand,
-  escInfo
+  escInfo,
+  escConnected
 }) => {
   const [sending, setSending] = useState(false);
   const [lastCommand, setLastCommand] = useState<string>('');
@@ -40,14 +42,30 @@ const DSHOTCommands: React.FC<DSHOTCommandsProps> = ({
       
       {expanded && (
       <div style={{ padding: '1rem' }}>
-        {/* ESC Information */}
-        <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+        {/* Connection Warning */}
+        {!escConnected && (
+          <div style={{ 
+            marginBottom: '1rem',
+            padding: '0.75rem', 
+            backgroundColor: 'rgba(100, 100, 100, 0.1)', 
+            border: '2px solid #666', 
+            borderRadius: '4px',
+            color: '#aaa',
+            textAlign: 'center',
+            fontWeight: 'bold'
+          }}>
+            ⚠️ ESC not connected - Connect ESC in configuration panel first
+          </div>
+        )}
+
+        {/* ESC Information - Hidden for now (ESC info reading not supported by most ESCs/library) */}
+        {/* <div className="form-group" style={{ marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
             <label className="form-label" style={{ margin: 0 }}>ESC Information</label>
             <button
               className="button-secondary"
               onClick={() => handleCommand(DSHOTSpecialCommand.ESC_INFO, 'Request Info')}
-              disabled={sending}
+              disabled={sending || !escConnected}
               style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
             >
               {sending && lastCommand === 'Request Info' ? 'Reading...' : '🔍 Read Info'}
@@ -63,9 +81,12 @@ const DSHOTCommands: React.FC<DSHOTCommandsProps> = ({
               <div>Firmware: v{escInfo.data.firmwareVersion || 'Unknown'}</div>
               <div>Direction: {escInfo.data.rotationDirection === 1 ? 'Normal' : 'Reversed'}</div>
               <div>3D Mode: {escInfo.data.mode3D ? 'Enabled' : 'Disabled'}</div>
+              <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.5rem', fontStyle: 'italic' }}>
+                Note: ESC info may take several seconds to read and depends on ESC firmware support.
+              </p>
             </div>
           )}
-        </div>
+        </div> */}
 
         {/* Motor Direction */}
         <div className="form-group" style={{ marginBottom: '1.5rem' }}>
@@ -74,7 +95,7 @@ const DSHOTCommands: React.FC<DSHOTCommandsProps> = ({
             <button
               className="button-secondary"
               onClick={() => handleCommand(DSHOTSpecialCommand.SPIN_DIRECTION_NORMAL, 'Normal Direction')}
-              disabled={sending}
+              disabled={sending || !escConnected}
               style={{ flex: 1, padding: '0.75rem' }}
             >
               {sending && lastCommand === 'Normal Direction' ? '...' : '↻ Normal'}
@@ -82,7 +103,7 @@ const DSHOTCommands: React.FC<DSHOTCommandsProps> = ({
             <button
               className="button-secondary"
               onClick={() => handleCommand(DSHOTSpecialCommand.SPIN_DIRECTION_REVERSED, 'Reverse Direction')}
-              disabled={sending}
+              disabled={sending || !escConnected}
               style={{ flex: 1, padding: '0.75rem' }}
             >
               {sending && lastCommand === 'Reverse Direction' ? '...' : '↺ Reverse'}
@@ -100,7 +121,7 @@ const DSHOTCommands: React.FC<DSHOTCommandsProps> = ({
             <button
               className="button-secondary"
               onClick={() => handleCommand(DSHOTSpecialCommand.MODE_3D_ON, '3D Mode On')}
-              disabled={sending}
+              disabled={sending || !escConnected}
               style={{ flex: 1, padding: '0.75rem' }}
             >
               {sending && lastCommand === '3D Mode On' ? '...' : 'Enable 3D'}
@@ -108,7 +129,7 @@ const DSHOTCommands: React.FC<DSHOTCommandsProps> = ({
             <button
               className="button-secondary"
               onClick={() => handleCommand(DSHOTSpecialCommand.MODE_3D_OFF, '3D Mode Off')}
-              disabled={sending}
+              disabled={sending || !escConnected}
               style={{ flex: 1, padding: '0.75rem' }}
             >
               {sending && lastCommand === '3D Mode Off' ? '...' : 'Disable 3D'}
@@ -125,7 +146,7 @@ const DSHOTCommands: React.FC<DSHOTCommandsProps> = ({
                 key={num}
                 className="button-secondary"
                 onClick={() => handleCommand(num as DSHOTSpecialCommand, `Beep ${num}`)}
-                disabled={sending}
+                disabled={sending || !escConnected}
                 style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
               >
                 {sending && lastCommand === `Beep ${num}` ? '...' : `🔊 Beep ${num}`}
@@ -143,7 +164,7 @@ const DSHOTCommands: React.FC<DSHOTCommandsProps> = ({
                 <button
                   className="button-secondary"
                   onClick={() => handleCommand((22 + led) as DSHOTSpecialCommand, `LED${led} On`)}
-                  disabled={sending}
+                  disabled={sending || !escConnected}
                   style={{ padding: '0.5rem', fontSize: '0.75rem' }}
                 >
                   💡 {led} On
@@ -155,7 +176,7 @@ const DSHOTCommands: React.FC<DSHOTCommandsProps> = ({
                 key={`off-${led}`}
                 className="button-secondary"
                 onClick={() => handleCommand((26 + led) as DSHOTSpecialCommand, `LED${led} Off`)}
-                disabled={sending}
+                disabled={sending || !escConnected}
                 style={{ padding: '0.5rem', fontSize: '0.75rem' }}
               >
                 ⚫ {led} Off
@@ -169,7 +190,7 @@ const DSHOTCommands: React.FC<DSHOTCommandsProps> = ({
           <button
             className="button-primary"
             onClick={() => handleCommand(DSHOTSpecialCommand.SAVE_SETTINGS, 'Save Settings')}
-            disabled={sending}
+            disabled={sending || !escConnected}
             style={{ width: '100%', padding: '0.75rem 1rem' }}
           >
             {sending && lastCommand === 'Save Settings' ? 'Saving...' : '💾 Save Settings to ESC'}
