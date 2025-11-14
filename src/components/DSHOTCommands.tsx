@@ -9,7 +9,7 @@ interface DSHOTCommandsProps {
 
 const DSHOTCommands: React.FC<DSHOTCommandsProps> = ({
   onSendCommand,
-  escInfo,
+  // escInfo, // Commented out - ESC info feature not yet supported
   escConnected
 }) => {
   const [sending, setSending] = useState(false);
