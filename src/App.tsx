@@ -93,6 +93,7 @@ function App() {
   const [escConnected, setEscConnected] = useState(false);
   const [escInfo, setEscInfo] = useState<DSHOTResponsePacket | null>(null);
   const throttleTimeoutRef = useRef<number | null>(null);
+  const lastThrottleSendRef = useRef<number>(0);
   const recordingRef = useRef(false);
   const escRunningRef = useRef(false);
   const lastBatteryStateRef = useRef<BatteryState>(BatteryState.NORMAL);
@@ -189,6 +190,12 @@ function App() {
       }
       
       setConnected(true);
+      
+      // Reset runtime states on connection - ensure clean state
+      // (device firmware will also reset on BLE connect)
+      setEscRunning(false);
+      setEscConnected(false);
+      setRecording(false);
     } catch (error) {
       console.error('Failed to connect:', error);
       alert('Failed to connect to device. Make sure Bluetooth is enabled and the device is nearby.');
@@ -277,26 +284,44 @@ function App() {
   const handleThrottleChange = useCallback(async (newThrottle: number) => {
     setThrottle(newThrottle);
     
-    // If ESC is running, debounce throttle updates to avoid BLE congestion
+    // If ESC is running, send throttle updates immediately during slider interaction
+    // with minimal rate limiting (20ms) to prevent BLE queue overflow
     if (escRunning && connected) {
+      const now = Date.now();
+      const timeSinceLastSend = now - lastThrottleSendRef.current;
+      
       // Clear any pending throttle update
       if (throttleTimeoutRef.current !== null) {
         clearTimeout(throttleTimeoutRef.current);
       }
       
-      // Schedule new throttle update after 100ms of no changes
-      throttleTimeoutRef.current = window.setTimeout(async () => {
-        try {
-          const command: ESCCommandPacket = {
-            command: 1, // START (keeps it running with new throttle)
-            throttle: newThrottle
-          };
-          await bleManager.sendCommand(command);
-          throttleTimeoutRef.current = null;
-        } catch (error) {
+      // If enough time has passed since last send, send immediately
+      if (timeSinceLastSend >= 20) {
+        lastThrottleSendRef.current = now;
+        const command: ESCCommandPacket = {
+          command: 1, // START (keeps it running with new throttle)
+          throttle: newThrottle
+        };
+        bleManager.sendCommand(command).catch(error => {
           console.error('Failed to update throttle:', error);
-        }
-      }, 100);
+        });
+      } else {
+        // Otherwise schedule for next available slot
+        const delay = 20 - timeSinceLastSend;
+        throttleTimeoutRef.current = window.setTimeout(async () => {
+          try {
+            lastThrottleSendRef.current = Date.now();
+            const command: ESCCommandPacket = {
+              command: 1, // START (keeps it running with new throttle)
+              throttle: newThrottle
+            };
+            await bleManager.sendCommand(command);
+            throttleTimeoutRef.current = null;
+          } catch (error) {
+            console.error('Failed to update throttle:', error);
+          }
+        }, delay);
+      }
     }
   }, [escRunning, connected, bleManager]);
 

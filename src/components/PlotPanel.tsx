@@ -272,7 +272,7 @@ const PlotPanel: React.FC<PlotPanelProps> = ({
             const padding = Math.max(range * 0.2, 1);
             
             newRanges.y = {
-              min: Math.max(0, dataMin - padding),
+              min: dataMin - padding,
               max: dataMax + padding
             };
           }
@@ -291,7 +291,7 @@ const PlotPanel: React.FC<PlotPanelProps> = ({
             const padding = Math.max(range * 0.2, 1);
             
             newRanges.y1 = {
-              min: Math.max(0, dataMin - padding),
+              min: dataMin - padding,
               max: dataMax + padding
             };
           }
