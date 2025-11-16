@@ -34,7 +34,7 @@ const ESCControl: React.FC<ESCControlProps> = ({
   cutoffVoltage,
   warningVoltage
 }) => {
-  const [configExpanded, setConfigExpanded] = useState(true);
+  const [configExpanded, setConfigExpanded] = useState(false);
 
   return (
     <>

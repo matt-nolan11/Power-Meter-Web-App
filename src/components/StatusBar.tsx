@@ -16,7 +16,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ connected, recording, sampleCount
       <div className="status-item">
         <span className={`status-dot ${recording ? 'recording' : ''}`}></span>
         <span>
-          Recording: {recording ? `● ${sampleCount} samples` : 'Inactive'}
+          Recording: {recording ? `● ${sampleCount.toLocaleString()} samples` : sampleCount > 0 ? `${sampleCount.toLocaleString()} samples recorded` : 'Inactive'}
         </span>
       </div>
     </div>

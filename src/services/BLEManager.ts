@@ -35,9 +35,14 @@ export class BLEManager {
   private batteryCallback: BatteryCallback | null = null;
   private connectionCallback: ConnectionCallback | null = null;
   private dshotResponseCallback: DSHOTResponseCallback | null = null;
+  
+  // Flag to prevent onDisconnected callback during intentional disconnect
+  private isDisconnecting: boolean = false;
 
   async connect(): Promise<void> {
     try {
+      this.isDisconnecting = false;
+      
       // Request device - filter by name prefix to show only relevant devices
       // This allows multiple power meter devices while filtering out unrelated BLE devices
       this.device = await navigator.bluetooth.requestDevice({
@@ -51,12 +56,30 @@ export class BLEManager {
       // Add disconnect listener
       this.device.addEventListener('gattserverdisconnected', this.onDisconnected.bind(this));
 
-      // Connect to GATT server
-      this.server = await this.device.gatt!.connect();
-      console.log('Connected to GATT server');
+      // Connect to GATT server with retry logic
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          // If already connected (cached), disconnect first
+          if (this.device.gatt?.connected) {
+            console.log('Device already connected - disconnecting first');
+            await this.device.gatt.disconnect();
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          
+          this.server = await this.device.gatt!.connect();
+          console.log('Connected to GATT server');
+          break; // Success - exit retry loop
+        } catch (e) {
+          retries--;
+          if (retries === 0) throw e;
+          console.warn(`Connection failed, retrying... (${retries} attempts left)`);
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
 
       // Get service
-      const service = await this.server.getPrimaryService(BLE_SERVICE_UUID);
+      const service = await this.server!.getPrimaryService(BLE_SERVICE_UUID);
       console.log('Got BLE service');
 
       // Get characteristics
@@ -106,20 +129,98 @@ export class BLEManager {
   }
 
   async disconnect(): Promise<void> {
-    if (this.server && this.server.connected) {
-      await this.server.disconnect();
+    try {
+      // Set flag to prevent onDisconnected callback
+      this.isDisconnecting = true;
+      
+      // Remove disconnect listener before disconnecting
+      if (this.device) {
+        this.device.removeEventListener('gattserverdisconnected', this.onDisconnected.bind(this));
+      }
+
+      // Stop notifications before disconnecting
+      if (this.dataCharacteristic) {
+        try {
+          await this.dataCharacteristic.stopNotifications();
+          this.dataCharacteristic.removeEventListener('characteristicvaluechanged', 
+            this.onDataReceived.bind(this));
+        } catch (e) {
+          console.warn('Error stopping data notifications:', e);
+        }
+      }
+
+      if (this.batteryCharacteristic) {
+        try {
+          await this.batteryCharacteristic.stopNotifications();
+          this.batteryCharacteristic.removeEventListener('characteristicvaluechanged',
+            this.onBatteryReceived.bind(this));
+        } catch (e) {
+          console.warn('Error stopping battery notifications:', e);
+        }
+      }
+
+      if (this.dshotResponseCharacteristic) {
+        try {
+          await this.dshotResponseCharacteristic.stopNotifications();
+          this.dshotResponseCharacteristic.removeEventListener('characteristicvaluechanged',
+            this.onDSHOTResponse.bind(this));
+        } catch (e) {
+          console.warn('Error stopping DSHOT response notifications:', e);
+        }
+      }
+
+      // Disconnect from GATT server
+      if (this.server && this.server.connected) {
+        await this.server.disconnect();
+      }
+
+      // Try to forget the device if supported (Chrome 105+)
+      // This clears browser cache and forces fresh pairing next time
+      if (this.device && 'forget' in this.device) {
+        try {
+          await (this.device as any).forget();
+          console.log('BLE: Device forgotten - cache cleared');
+        } catch (e) {
+          // Silently fail - forget() not supported or permission denied
+          console.log('BLE: Device.forget() not available');
+        }
+      }
+
+      // Clear all references
+      this.device = null;
+      this.server = null;
+      this.dataCharacteristic = null;
+      this.batteryCharacteristic = null;
+      this.configCharacteristic = null;
+      this.commandCharacteristic = null;
+      this.dshotCommandCharacteristic = null;
+      this.dshotResponseCharacteristic = null;
+
+      console.log('BLE: Cleanly disconnected');
+      
+      // Reset flag after cleanup
+      this.isDisconnecting = false;
+    } catch (error) {
+      console.error('Error during disconnect:', error);
+      // Clear references even if disconnect failed
+      this.device = null;
+      this.server = null;
+      this.dataCharacteristic = null;
+      this.batteryCharacteristic = null;
+      this.configCharacteristic = null;
+      this.commandCharacteristic = null;
+      this.dshotCommandCharacteristic = null;
+      this.dshotResponseCharacteristic = null;
+      this.isDisconnecting = false;
     }
-    this.device = null;
-    this.server = null;
-    this.dataCharacteristic = null;
-    this.batteryCharacteristic = null;
-    this.configCharacteristic = null;
-    this.commandCharacteristic = null;
-    this.dshotCommandCharacteristic = null;
-    this.dshotResponseCharacteristic = null;
   }
 
   private onDisconnected(): void {
+    // Ignore disconnect events during intentional disconnect
+    if (this.isDisconnecting) {
+      return;
+    }
+    
     console.log('Device disconnected');
     if (this.connectionCallback) {
       this.connectionCallback(false);

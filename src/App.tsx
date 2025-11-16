@@ -40,9 +40,12 @@ function App() {
   // Store reference to first plot's data for CSV export
   const recordedDataRef = useRef<Map<MetricType, { x: number; y: number }[]> | null>(null);
   
-  // CSV export selections
+  // Track which metrics have been initialized for export
+  const initializedMetricsRef = useRef<Set<MetricType>>(new Set());
+  
+  // CSV export selections - start with empty set, user selects what they want
   const [exportSelections, setExportSelections] = useState<Set<MetricType>>(
-    new Set(Object.values(MetricType))
+    new Set()
   );
   
   // Data cards state
@@ -97,6 +100,12 @@ function App() {
   const recordingRef = useRef(false);
   const escRunningRef = useRef(false);
   const lastBatteryStateRef = useRef<BatteryState>(BatteryState.NORMAL);
+  
+  // Column resize state
+  const [leftColumnWidth, setLeftColumnWidth] = useState(650);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStartX = useRef(0);
+  const resizeStartWidth = useRef(650);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -106,6 +115,26 @@ function App() {
   useEffect(() => {
     escRunningRef.current = escRunning;
   }, [escRunning]);
+
+  // Auto-select all metrics when they first appear
+  useEffect(() => {
+    if (recordedDataRef.current && recordedDataRef.current.size > 0) {
+      const newMetrics = new Set(exportSelections);
+      let hasNewMetrics = false;
+      
+      recordedDataRef.current.forEach((_, metric) => {
+        if (!initializedMetricsRef.current.has(metric)) {
+          initializedMetricsRef.current.add(metric);
+          newMetrics.add(metric);
+          hasNewMetrics = true;
+        }
+      });
+      
+      if (hasNewMetrics) {
+        setExportSelections(newMetrics);
+      }
+    }
+  }, [recordedDataRef.current?.size, exportSelections]);
 
   useEffect(() => {
     bleManager.setConnectionCallback((isConnected) => {
@@ -198,14 +227,66 @@ function App() {
       setRecording(false);
     } catch (error) {
       console.error('Failed to connect:', error);
-      alert('Failed to connect to device. Make sure Bluetooth is enabled and the device is nearby.');
+      // Only show error if it's not a user cancellation
+      if (error instanceof Error && !error.message.includes('User cancelled')) {
+        alert('Failed to connect to device. Make sure Bluetooth is enabled and the device is nearby.');
+      }
     }
   };
 
   const handleDisconnect = async () => {
-    await bleManager.disconnect();
-    setConnected(false);
-    setEscRunning(false);
+    try {
+      // Stop recording first if active
+      if (recording) {
+        setRecording(false);
+      }
+      
+      // Stop ESC motor if running
+      if (escRunning) {
+        try {
+          const stopCommand: ESCCommandPacket = {
+            command: 0, // STOP
+            throttle: 0
+          };
+          await bleManager.sendCommand(stopCommand);
+          await new Promise(resolve => setTimeout(resolve, 50));
+        } catch (e) {
+          console.warn('Failed to stop ESC during disconnect:', e);
+        }
+      }
+      
+      // Disconnect ESC if connected
+      if (escConnected) {
+        try {
+          const disconnectCommand: ESCCommandPacket = {
+            command: 3, // DISCONNECT
+            throttle: 0
+          };
+          await bleManager.sendCommand(disconnectCommand);
+          await new Promise(resolve => setTimeout(resolve, 50));
+        } catch (e) {
+          console.warn('Failed to disconnect ESC during BLE disconnect:', e);
+        }
+      }
+      
+      // Finally disconnect BLE
+      await bleManager.disconnect();
+      
+      // Delay to ensure firmware processes disconnect
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      setConnected(false);
+      setEscRunning(false);
+      setEscConnected(false);
+      setRecording(false);
+    } catch (error) {
+      console.error('Disconnect error:', error);
+      // Still update UI even if disconnect had issues
+      setConnected(false);
+      setEscRunning(false);
+      setEscConnected(false);
+      setRecording(false);
+    }
   };
 
   const handleStart = useCallback(async () => {
@@ -536,6 +617,33 @@ function App() {
     setExportSelections(newSelections);
   };
 
+  const selectAllMetrics = () => {
+    if (!recordedDataRef.current) return;
+    const allMetrics = new Set<MetricType>();
+    recordedDataRef.current.forEach((_, metric) => {
+      allMetrics.add(metric);
+    });
+    setExportSelections(allMetrics);
+  };
+
+  const deselectAllMetrics = () => {
+    setExportSelections(new Set());
+  };
+
+  const selectPlottedMetrics = () => {
+    if (!recordedDataRef.current) return;
+    const plottedMetrics = new Set<MetricType>();
+    plots.forEach(plot => {
+      if (plot.leftYAxis && recordedDataRef.current!.has(plot.leftYAxis)) {
+        plottedMetrics.add(plot.leftYAxis);
+      }
+      if (plot.rightYAxis && recordedDataRef.current!.has(plot.rightYAxis)) {
+        plottedMetrics.add(plot.rightYAxis);
+      }
+    });
+    setExportSelections(plottedMetrics);
+  };
+
   // Calculate which metrics are used across all plots
   const usedMetricsInAllPlots = new Set<MetricType>();
   plots.forEach(plot => {
@@ -546,8 +654,38 @@ function App() {
   const totalCutoffVoltage = escConfig.batteryCells * (escConfig.batteryCutoff / 1000);
   const totalWarningVoltage = escConfig.batteryCells * ((escConfig.batteryCutoff + escConfig.batteryWarningDelta) / 1000);
 
+  // Column resize handlers
+  const handleResizeStart = (e: React.MouseEvent) => {
+    setIsResizing(true);
+    resizeStartX.current = e.clientX;
+    resizeStartWidth.current = leftColumnWidth;
+    e.preventDefault();
+  };
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - resizeStartX.current;
+      const newWidth = Math.max(300, Math.min(800, resizeStartWidth.current + delta));
+      setLeftColumnWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
   return (
-    <div className="container">
+    <div className="container" style={{ '--left-column-width': `${leftColumnWidth}px` } as React.CSSProperties}>
       <div className="header">
         <h1>RC Power Meter</h1>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -584,196 +722,243 @@ function App() {
 
       {connected && (
         <>
-          <ESCControl
-            config={escConfig}
-            onConfigChange={handleConfigChange}
-            dshotSettings={dshotSettings}
-            onDshotSettingsChange={handleDshotSettingsChange}
-            running={escRunning}
-            escConnected={escConnected}
-            onConnectESC={handleConnectESC}
-            onDisconnectESC={handleDisconnectESC}
-            cutoffVoltage={totalCutoffVoltage}
-            warningVoltage={totalWarningVoltage}
-          />
-
-          {escConfig.mode === ESCMode.DSHOT && (
-            <DSHOTCommands
-              onSendCommand={handleSendDSHOTCommand}
-              escInfo={escInfo}
-              escConnected={escConnected}
+          {/* Desktop Layout: 2-column grid for better space usage */}
+          <div className="desktop-layout">
+            {/* Resize Handle */}
+            <div 
+              className={`column-resize-handle ${isResizing ? 'resizing' : ''}`}
+              onMouseDown={handleResizeStart}
+              style={{ left: `${leftColumnWidth}px` }}
             />
-          )}
-
-          <MotorControl
-            escType={escConfig.escType}
-            throttle={throttle}
-            onThrottleChange={handleThrottleChange}
-            running={escRunning && batteryStatus?.state !== BatteryState.CUTOFF}
-            onStart={handleStart}
-            onStop={handleStop}
-            disabled={!escConnected || (escConfig.batteryProtectionEnabled && batteryStatus?.state === BatteryState.CUTOFF)}
-            batteryStatus={batteryStatus}
-            batteryProtectionEnabled={escConfig.batteryProtectionEnabled}
-            cutoffVoltage={totalCutoffVoltage}
-          />
-
-          <DynamicDataCards 
-            data={latestData} 
-            mode={escConfig.mode}
-            cards={dataCards}
-            onAddCard={handleAddCard}
-            onRemoveCard={handleRemoveCard}
-            onChangeMetric={handleChangeMetric}
-            dshotSettings={dshotSettings}
-          />
-
-          {plots.map((plot, index) => {
-            return (
-              <PlotPanel
-                key={plot.id}
-                plot={plot}
-                data={latestData}
-                mode={escConfig.mode}
-                recording={recording}
-                startTime={recordingStartTime}
-                onRemove={() => handleRemovePlot(plot.id)}
-                onUpdateLeftAxis={(metric) => handleUpdatePlotLeftAxis(plot.id, metric)}
-                onUpdateRightAxis={(metric) => handleUpdatePlotRightAxis(plot.id, metric)}
-                onDataRef={index === 0 ? (ref) => { recordedDataRef.current = ref.current; } : undefined}
-                onSampleCountUpdate={index === 0 ? (count) => setSampleCount(count) : undefined}
+            
+            {/* Left Column: Controls */}
+            <div className="controls-column">
+              <ESCControl
+                config={escConfig}
+                onConfigChange={handleConfigChange}
                 dshotSettings={dshotSettings}
+                onDshotSettingsChange={handleDshotSettingsChange}
+                running={escRunning}
+                escConnected={escConnected}
+                onConnectESC={handleConnectESC}
+                onDisconnectESC={handleDisconnectESC}
+                cutoffVoltage={totalCutoffVoltage}
+                warningVoltage={totalWarningVoltage}
               />
-            );
-          })}
 
-          <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-            <button
-              className="button-secondary"
-              onClick={handleAddPlot}
-              disabled={recording}
-              style={{ 
-                padding: '0.75rem 2rem',
-                cursor: recording ? 'not-allowed' : 'pointer',
-                opacity: recording ? 0.5 : 1
-              }}
-              title={recording ? "Cannot add plots while recording" : ""}
-            >
-              + Add Plot
-            </button>
-          </div>
-
-          <div className="panel" style={{ marginTop: '1rem' }}>
-            <h3 className="panel-title">Data Recording</h3>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-              {!recording ? (
-                <button
-                  className="button-primary"
-                  onClick={handleStartRecording}
-                  style={{ padding: '0.75rem 2rem' }}
-                >
-                  ● Start Recording
-                </button>
-              ) : (
-                <>
-                  <button
-                    className="button-danger"
-                    onClick={handleStopRecording}
-                    style={{ padding: '0.75rem 2rem' }}
-                  >
-                    ■ Stop Recording
-                  </button>
-                  <div style={{ color: '#10b981', fontSize: '1rem' }}>
-                    ● Recording: {sampleCount.toLocaleString()} samples
-                  </div>
-                </>
+              {escConfig.mode === ESCMode.DSHOT && (
+                <DSHOTCommands
+                  onSendCommand={handleSendDSHOTCommand}
+                  escInfo={escInfo}
+                  escConnected={escConnected}
+                />
               )}
+
+              <MotorControl
+                escType={escConfig.escType}
+                throttle={throttle}
+                onThrottleChange={handleThrottleChange}
+                running={escRunning && batteryStatus?.state !== BatteryState.CUTOFF}
+                onStart={handleStart}
+                onStop={handleStop}
+                disabled={!escConnected || (escConfig.batteryProtectionEnabled && batteryStatus?.state === BatteryState.CUTOFF)}
+                batteryStatus={batteryStatus}
+                batteryProtectionEnabled={escConfig.batteryProtectionEnabled}
+                cutoffVoltage={totalCutoffVoltage}
+              />
             </div>
 
-            {recordedDataRef.current && recordedDataRef.current.size > 0 && (
-              <>
-                <div style={{ borderTop: '1px solid #333', margin: '1rem 0' }} />
-                <div style={{ 
-                  padding: '0 1rem 1rem',
-                  opacity: recording ? 0.5 : 1,
-                  pointerEvents: recording ? 'none' : 'auto'
-                }}>
-                  <h4 style={{ marginBottom: '1rem', fontSize: '1rem', color: '#ddd' }}>
-                    Data Export
-                  </h4>
-                  <p style={{ marginBottom: '1rem', color: '#aaa', fontSize: '0.875rem' }}>
-                    Select metrics to export:
-                  </p>
-                  <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
-                    gap: '0.5rem',
-                    marginBottom: '1rem'
-                  }}>
-                    {Object.values(MetricType).map(metric => {
-                      const hasData = recordedDataRef.current?.has(metric);
-                      if (!hasData) return null;
-                      
-                      // Get dynamic unit for tip speed
-                      let unit = METRIC_UNITS[metric];
-                      if (metric === MetricType.TIP_SPEED && dshotSettings) {
-                        const unitMap: Record<TipSpeedUnit, string> = {
-                          [TipSpeedUnit.MPH]: 'mph',
-                          [TipSpeedUnit.MS]: 'm/s',
-                          [TipSpeedUnit.KMH]: 'km/h',
-                          [TipSpeedUnit.FTS]: 'ft/s'
-                        };
-                        unit = unitMap[dshotSettings.tipSpeedUnit];
-                      }
-                      
-                      return (
-                        <label 
-                          key={metric}
-                          style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '0.5rem',
-                            cursor: 'pointer',
-                            padding: '0.5rem',
-                            borderRadius: '4px',
-                            backgroundColor: exportSelections.has(metric) ? '#2a2a2a' : 'transparent',
-                            border: '1px solid #444'
-                          }}
-                        >
-                          <input 
-                            type="checkbox"
-                            checked={exportSelections.has(metric)}
-                            onChange={() => toggleExportSelection(metric)}
-                            style={{ cursor: 'pointer' }}
-                          />
-                          <span style={{ fontSize: '0.875rem' }}>
-                            {METRIC_LABELS[metric]} ({unit})
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center' }}>
+            {/* Right Column: Live Data & Plots */}
+            <div className="data-column">
+              {/* Live Data Cards */}
+              <DynamicDataCards 
+                data={latestData} 
+                mode={escConfig.mode}
+                cards={dataCards}
+                onAddCard={handleAddCard}
+                onRemoveCard={handleRemoveCard}
+                onChangeMetric={handleChangeMetric}
+                dshotSettings={dshotSettings}
+              />
+
+              {/* Plots Grid */}
+              <div className="plots-grid">
+                {plots.map((plot, index) => {
+                  return (
+                    <PlotPanel
+                      key={plot.id}
+                      plot={plot}
+                      data={latestData}
+                      mode={escConfig.mode}
+                      recording={recording}
+                      startTime={recordingStartTime}
+                      onRemove={() => handleRemovePlot(plot.id)}
+                      onUpdateLeftAxis={(metric) => handleUpdatePlotLeftAxis(plot.id, metric)}
+                      onUpdateRightAxis={(metric) => handleUpdatePlotRightAxis(plot.id, metric)}
+                      onDataRef={index === 0 ? (ref) => { recordedDataRef.current = ref.current; } : undefined}
+                      onSampleCountUpdate={index === 0 ? (count) => setSampleCount(count) : undefined}
+                      dshotSettings={dshotSettings}
+                    />
+                  );
+                })}
+              </div>
+
+              <div style={{ marginTop: '0.25rem', marginBottom: '0.75rem', textAlign: 'center' }}>
+                <button
+                  className="button-secondary"
+                  onClick={handleAddPlot}
+                  disabled={recording}
+                  style={{ 
+                    padding: '0.35rem 1rem',
+                    fontSize: '0.8rem',
+                    cursor: recording ? 'not-allowed' : 'pointer',
+                    opacity: recording ? 0.5 : 1
+                  }}
+                  title={recording ? "Cannot add plots while recording" : ""}
+                >
+                  + Add Plot
+                </button>
+              </div>
+
+              {/* Data Recording Controls */}
+              <div className="panel">
+                <h3 className="panel-title">Data Recording</h3>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', justifyContent: 'center', padding: '0.5rem' }}>
+                  {!recording ? (
                     <button
                       className="button-primary"
-                      onClick={handleExportCSV}
-                      disabled={exportSelections.size === 0}
-                      style={{ 
-                        padding: '0.75rem 2rem',
-                        cursor: exportSelections.size === 0 ? 'not-allowed' : 'pointer',
-                        opacity: exportSelections.size === 0 ? 0.5 : 1
-                      }}
+                      onClick={handleStartRecording}
+                      style={{ padding: '0.5rem 1.25rem' }}
                     >
-                      📥 Export to CSV
+                      ● Start Recording
                     </button>
-                    <span style={{ color: '#888', fontSize: '0.875rem' }}>
-                      {sampleCount.toLocaleString()} samples recorded
-                    </span>
-                  </div>
+                  ) : (
+                    <>
+                      <button
+                        className="button-danger"
+                        onClick={handleStopRecording}
+                        style={{ padding: '0.5rem 1.25rem' }}
+                      >
+                        ■ Stop Recording
+                      </button>
+                      <div style={{ color: '#10b981', fontSize: '0.85rem' }}>
+                        ● Recording: {sampleCount.toLocaleString()} samples
+                      </div>
+                    </>
+                  )}
                 </div>
-              </>
-            )}
+
+                {/* Data Export Section */}
+                {recordedDataRef.current && recordedDataRef.current.size > 0 && (
+                  <>
+                    <div style={{ borderTop: '1px solid #333', margin: '0.5rem 0' }} />
+                    <div style={{ 
+                      padding: '0 0.5rem 0.5rem',
+                      opacity: recording ? 0.5 : 1,
+                      pointerEvents: recording ? 'none' : 'auto'
+                    }}>
+                      <h4 style={{ marginBottom: '0.5rem', fontSize: '0.85rem', color: '#ddd' }}>
+                        Data Export
+                      </h4>
+                      <p style={{ marginBottom: '0.5rem', color: '#aaa', fontSize: '0.75rem' }}>
+                        Select metrics to export:
+                      </p>
+                      <div style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', 
+                        gap: '0.4rem',
+                        marginBottom: '0.5rem',
+                        justifyItems: 'center'
+                      }}>
+                        {Object.values(MetricType).map(metric => {
+                          const hasData = recordedDataRef.current?.has(metric);
+                          if (!hasData) return null;
+                          
+                          // Get dynamic unit for tip speed
+                          let unit = METRIC_UNITS[metric];
+                          if (metric === MetricType.TIP_SPEED && dshotSettings) {
+                            const unitMap: Record<TipSpeedUnit, string> = {
+                              [TipSpeedUnit.MPH]: 'mph',
+                              [TipSpeedUnit.MS]: 'm/s',
+                              [TipSpeedUnit.KMH]: 'km/h',
+                              [TipSpeedUnit.FTS]: 'ft/s'
+                            };
+                            unit = unitMap[dshotSettings.tipSpeedUnit];
+                          }
+                          
+                          const isChecked = exportSelections.has(metric);
+                          
+                          return (
+                            <label 
+                              key={metric}
+                              style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '0.3rem',
+                                cursor: 'pointer',
+                                padding: '0.35rem 0.5rem',
+                                borderRadius: '4px',
+                                backgroundColor: isChecked ? '#2a2a2a' : 'transparent',
+                                border: '1px solid #444',
+                                width: '100%',
+                                maxWidth: '200px'
+                              }}
+                            >
+                              <input 
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleExportSelection(metric)}
+                                style={{ cursor: 'pointer' }}
+                              />
+                              <span style={{ fontSize: '0.75rem' }}>
+                                {METRIC_LABELS[metric]} ({unit})
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <button
+                          className="button-primary"
+                          onClick={handleExportCSV}
+                          disabled={exportSelections.size === 0}
+                          style={{ 
+                            padding: '0.5rem 1.25rem',
+                            fontSize: '0.85rem',
+                            cursor: exportSelections.size === 0 ? 'not-allowed' : 'pointer',
+                            opacity: exportSelections.size === 0 ? 0.5 : 1
+                          }}
+                        >
+                          💾 Export CSV ({exportSelections.size})
+                        </button>
+                        <button
+                          className="button-secondary"
+                          onClick={selectAllMetrics}
+                          style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
+                        >
+                          Select All
+                        </button>
+                        <button
+                          className="button-secondary"
+                          onClick={deselectAllMetrics}
+                          style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
+                        >
+                          Deselect All
+                        </button>
+                        <button
+                          className="button-secondary"
+                          onClick={selectPlottedMetrics}
+                          style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
+                        >
+                          Plotted Only
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </>
       )}

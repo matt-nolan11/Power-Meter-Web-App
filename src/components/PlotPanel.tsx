@@ -407,9 +407,10 @@ const PlotPanel: React.FC<PlotPanelProps> = ({
             // Round to 1 decimal place for cleaner display
             return typeof value === 'number' ? value.toFixed(1) + 's' : value + 's';
           },
-          autoSkip: true,
-          // Scale tick limit based on window width to avoid flickering threshold
-          maxTicksLimit: Math.max(5, Math.floor(timeWindowWidth / 2)),
+          sampleSize: 10, // Sample fewer ticks to reduce recalculation
+          maxTicksLimit: 10,
+          minRotation: 0,
+          maxRotation: 0,
           padding: 5
         },
         grid: {
