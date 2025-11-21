@@ -160,10 +160,9 @@ const ESCControl: React.FC<ESCControlProps> = ({
                 type="number"
                 className="form-input"
                 value={config.motorPoles}
-                onChange={(e) => onConfigChange({ motorPoles: parseInt(e.target.value) || 14 })}
+                onChange={(e) => onConfigChange({ motorPoles: parseInt(e.target.value) })}
                 disabled={running}
-                min="2"
-                max="50"
+                style={isNaN(config.motorPoles) ? { borderColor: '#ff4444' } : undefined}
               />
             </div>
           </div>
@@ -181,9 +180,9 @@ const ESCControl: React.FC<ESCControlProps> = ({
                     type="number"
                     className="form-input"
                     value={dshotSettings.diameter}
-                    onChange={(e) => onDshotSettingsChange({ diameter: parseFloat(e.target.value) || 10 })}
+                    onChange={(e) => onDshotSettingsChange({ diameter: parseFloat(e.target.value) })}
                     step="0.1"
-                    min="0.1"
+                    style={isNaN(dshotSettings.diameter) ? { borderColor: '#ff4444' } : undefined}
                   />
                   <select
                     className="form-input"
@@ -205,9 +204,9 @@ const ESCControl: React.FC<ESCControlProps> = ({
                     type="number"
                     className="form-input"
                     value={dshotSettings.moi}
-                    onChange={(e) => onDshotSettingsChange({ moi: parseFloat(e.target.value) || 5000 })}
+                    onChange={(e) => onDshotSettingsChange({ moi: parseFloat(e.target.value) })}
                     step="100"
-                    min="1"
+                    style={isNaN(dshotSettings.moi) ? { borderColor: '#ff4444' } : undefined}
                   />
                   <select
                     className="form-input"
@@ -222,6 +221,21 @@ const ESCControl: React.FC<ESCControlProps> = ({
                   </select>
                 </div>
               </div>
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">Gear Ratio (Motor:Output)</label>
+              <input
+                type="number"
+                className="form-input"
+                value={dshotSettings.gearRatio}
+                onChange={(e) => onDshotSettingsChange({ gearRatio: parseFloat(e.target.value) })}
+                step="0.1"
+                style={isNaN(dshotSettings.gearRatio) ? { borderColor: '#ff4444' } : undefined}
+              />
+              <small style={{ color: '#888', fontSize: '0.75rem', display: 'block', marginTop: '0.25rem' }}>
+                e.g. 1.0 = direct drive, 3.0 = 3:1 reduction (motor @ 3000 RPM → output @ 1000 RPM)
+              </small>
             </div>
             
             <div className="form-group">
@@ -251,16 +265,18 @@ const ESCControl: React.FC<ESCControlProps> = ({
                 className="form-input"
                 placeholder="Min"
                 value={config.throttleMin}
-                onChange={(e) => onConfigChange({ throttleMin: parseInt(e.target.value) || 1000 })}
+                onChange={(e) => onConfigChange({ throttleMin: parseInt(e.target.value) })}
                 disabled={running}
+                style={isNaN(config.throttleMin) ? { borderColor: '#ff4444' } : undefined}
               />
               <input
                 type="number"
                 className="form-input"
                 placeholder="Max"
                 value={config.throttleMax}
-                onChange={(e) => onConfigChange({ throttleMax: parseInt(e.target.value) || 2000 })}
+                onChange={(e) => onConfigChange({ throttleMax: parseInt(e.target.value) })}
                 disabled={running}
+                style={isNaN(config.throttleMax) ? { borderColor: '#ff4444' } : undefined}
               />
             </div>
           </div>
@@ -297,10 +313,9 @@ const ESCControl: React.FC<ESCControlProps> = ({
                   type="number"
                   className="form-input"
                   value={config.rampUpRate}
-                  onChange={(e) => onConfigChange({ rampUpRate: parseInt(e.target.value) || 50 })}
+                  onChange={(e) => onConfigChange({ rampUpRate: parseInt(e.target.value) })}
                   disabled={running}
-                  min="1"
-                  max="1000"
+                  style={isNaN(config.rampUpRate) ? { borderColor: '#ff4444' } : undefined}
                 />
               </div>
             )}
@@ -311,10 +326,9 @@ const ESCControl: React.FC<ESCControlProps> = ({
                   type="number"
                   className="form-input"
                   value={config.rampDownRate}
-                  onChange={(e) => onConfigChange({ rampDownRate: parseInt(e.target.value) || 100 })}
+                  onChange={(e) => onConfigChange({ rampDownRate: parseInt(e.target.value) })}
                   disabled={running}
-                  min="1"
-                  max="1000"
+                  style={isNaN(config.rampDownRate) ? { borderColor: '#ff4444' } : undefined}
                 />
               </div>
             )}
@@ -358,8 +372,9 @@ const ESCControl: React.FC<ESCControlProps> = ({
                   className="form-input"
                   step="0.1"
                   value={config.batteryCutoff / 1000}
-                  onChange={(e) => onConfigChange({ batteryCutoff: Math.round((parseFloat(e.target.value) || 3.2) * 1000) })}
+                  onChange={(e) => onConfigChange({ batteryCutoff: Math.round(parseFloat(e.target.value) * 1000) })}
                   disabled={running}
+                  style={isNaN(config.batteryCutoff) ? { borderColor: '#ff4444' } : undefined}
                 />
               </div>
               <div className="form-group">
@@ -369,8 +384,9 @@ const ESCControl: React.FC<ESCControlProps> = ({
                   className="form-input"
                   step="0.1"
                   value={config.batteryWarningDelta / 1000}
-                  onChange={(e) => onConfigChange({ batteryWarningDelta: Math.round((parseFloat(e.target.value) || 0.2) * 1000) })}
+                  onChange={(e) => onConfigChange({ batteryWarningDelta: Math.round(parseFloat(e.target.value) * 1000) })}
                   disabled={running}
+                  style={isNaN(config.batteryWarningDelta) ? { borderColor: '#ff4444' } : undefined}
                 />
               </div>
             </div>

@@ -90,7 +90,8 @@ export function getCalculatedDSHOTMetrics(
   diameterUnit: DiameterUnit,
   moi: number,
   moiUnit: MOIUnit,
-  tipSpeedUnit: TipSpeedUnit
+  tipSpeedUnit: TipSpeedUnit,
+  gearRatio: number = 1.0 // Motor RPM / Output RPM (default 1:1 direct drive)
 ): {
   tipSpeed: number;
   kineticEnergy: number;
@@ -99,9 +100,13 @@ export function getCalculatedDSHOTMetrics(
   const diameterM = diameterToMeters(diameter, diameterUnit);
   const moiKgM2 = moiToKgM2(moi, moiUnit);
   
+  // Apply gear ratio to get actual output RPM
+  // If gear ratio is 3.0, motor at 3000 RPM drives output at 1000 RPM
+  const outputRpm = rpm / gearRatio;
+  
   return {
-    tipSpeed: calculateTipSpeed(rpm, diameterM, tipSpeedUnit),
-    kineticEnergy: calculateKineticEnergy(rpm, moiKgM2),
+    tipSpeed: calculateTipSpeed(outputRpm, diameterM, tipSpeedUnit),
+    kineticEnergy: calculateKineticEnergy(outputRpm, moiKgM2),
     tipSpeedUnit: tipSpeedUnit
   };
 }

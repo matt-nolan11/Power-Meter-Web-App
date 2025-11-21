@@ -14,9 +14,7 @@ import {
   DSHOTDisplaySettings,
   DiameterUnit,
   MOIUnit,
-  TipSpeedUnit,
-  DSHOTSpecialCommand,
-  DSHOTResponsePacket
+  TipSpeedUnit
 } from './types/ble';
 import { DataCard, PlotConfig, MetricType, METRIC_LABELS, METRIC_UNITS } from './types/dashboard';
 import ESCControl from './components/ESCControl.tsx';
@@ -24,7 +22,6 @@ import MotorControl from './components/MotorControl.tsx';
 import StatusBar from './components/StatusBar.tsx';
 import DynamicDataCards from './components/DynamicDataCards.tsx';
 import PlotPanel from './components/PlotPanel.tsx';
-import DSHOTCommands from './components/DSHOTCommands.tsx';
 
 function App() {
   const [bleManager] = useState(() => new BLEManager());
@@ -88,13 +85,13 @@ function App() {
     diameterUnit: DiameterUnit.INCHES,
     moi: 5000,
     moiUnit: MOIUnit.KG_MM2,
+    gearRatio: 1.0,
     tipSpeedUnit: TipSpeedUnit.MPH
   });
 
   const [throttle, setThrottle] = useState(0);
   const [escRunning, setEscRunning] = useState(false);
   const [escConnected, setEscConnected] = useState(false);
-  const [escInfo, setEscInfo] = useState<DSHOTResponsePacket | null>(null);
   const throttleTimeoutRef = useRef<number | null>(null);
   const lastThrottleSendRef = useRef<number>(0);
   const recordingRef = useRef(false);
@@ -164,10 +161,6 @@ function App() {
           escRunningRef.current = false;
         }
       }
-    });
-
-    bleManager.setDSHOTResponseCallback((response) => {
-      setEscInfo(response);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bleManager]);
@@ -442,19 +435,6 @@ function App() {
           dshotSettings: updatedSettings
         });
       }
-    }
-  };
-
-  const handleSendDSHOTCommand = async (command: DSHOTSpecialCommand) => {
-    if (!connected) {
-      console.error('Not connected to device');
-      return;
-    }
-
-    try {
-      await bleManager.sendDSHOTCommand(command);
-    } catch (error) {
-      console.error('Failed to send DSHOT command:', error);
     }
   };
 
@@ -745,14 +725,6 @@ function App() {
                 cutoffVoltage={totalCutoffVoltage}
                 warningVoltage={totalWarningVoltage}
               />
-
-              {escConfig.mode === ESCMode.DSHOT && (
-                <DSHOTCommands
-                  onSendCommand={handleSendDSHOTCommand}
-                  escInfo={escInfo}
-                  escConnected={escConnected}
-                />
-              )}
 
               <MotorControl
                 escType={escConfig.escType}

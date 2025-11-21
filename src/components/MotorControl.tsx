@@ -96,7 +96,7 @@ const MotorControl: React.FC<MotorControlProps> = ({
             className="slider"
             min={minThrottle}
             max={maxThrottle}
-            step="0.5"
+            step="0.1"
             value={throttle}
             onChange={(e) => onThrottleChange(parseFloat(e.target.value))}
           />

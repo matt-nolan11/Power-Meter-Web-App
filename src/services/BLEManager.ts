@@ -38,6 +38,16 @@ export class BLEManager {
   
   // Flag to prevent onDisconnected callback during intentional disconnect
   private isDisconnecting: boolean = false;
+  
+  // Heartbeat to keep connection alive
+  private heartbeatTimer: number | null = null;
+  private lastConfig: ESCConfigPacket | null = null;
+  
+  // Bound event handlers (to allow proper removal)
+  private boundOnDisconnected = this.onDisconnected.bind(this);
+  private boundOnDataReceived = this.onDataReceived.bind(this);
+  private boundOnBatteryReceived = this.onBatteryReceived.bind(this);
+  private boundOnDSHOTResponse = this.onDSHOTResponse.bind(this);
 
   async connect(): Promise<void> {
     try {
@@ -53,8 +63,8 @@ export class BLEManager {
         optionalServices: [BLE_SERVICE_UUID]
       });
 
-      // Add disconnect listener
-      this.device.addEventListener('gattserverdisconnected', this.onDisconnected.bind(this));
+      // Add disconnect listener (using bound handler for proper cleanup)
+      this.device.addEventListener('gattserverdisconnected', this.boundOnDisconnected);
 
       // Connect to GATT server with retry logic
       let retries = 3;
@@ -101,20 +111,20 @@ export class BLEManager {
       
       console.log('Got all characteristics');
 
-      // Start notifications
+      // Start notifications (using bound handlers)
       await this.dataCharacteristic.startNotifications();
       this.dataCharacteristic.addEventListener('characteristicvaluechanged', 
-        this.onDataReceived.bind(this));
+        this.boundOnDataReceived);
 
       await this.batteryCharacteristic.startNotifications();
       this.batteryCharacteristic.addEventListener('characteristicvaluechanged',
-        this.onBatteryReceived.bind(this));
+        this.boundOnBatteryReceived);
 
       // Start DSHOT response notifications if supported
       if (this.dshotResponseCharacteristic) {
         await this.dshotResponseCharacteristic.startNotifications();
         this.dshotResponseCharacteristic.addEventListener('characteristicvaluechanged',
-          this.onDSHOTResponse.bind(this));
+          this.boundOnDSHOTResponse);
       }
 
       console.log('Started notifications');
@@ -130,12 +140,15 @@ export class BLEManager {
 
   async disconnect(): Promise<void> {
     try {
+      // Stop heartbeat
+      this.stopHeartbeat();
+      
       // Set flag to prevent onDisconnected callback
       this.isDisconnecting = true;
       
       // Remove disconnect listener before disconnecting
       if (this.device) {
-        this.device.removeEventListener('gattserverdisconnected', this.onDisconnected.bind(this));
+        this.device.removeEventListener('gattserverdisconnected', this.boundOnDisconnected);
       }
 
       // Stop notifications before disconnecting
@@ -143,7 +156,7 @@ export class BLEManager {
         try {
           await this.dataCharacteristic.stopNotifications();
           this.dataCharacteristic.removeEventListener('characteristicvaluechanged', 
-            this.onDataReceived.bind(this));
+            this.boundOnDataReceived);
         } catch (e) {
           console.warn('Error stopping data notifications:', e);
         }
@@ -153,7 +166,7 @@ export class BLEManager {
         try {
           await this.batteryCharacteristic.stopNotifications();
           this.batteryCharacteristic.removeEventListener('characteristicvaluechanged',
-            this.onBatteryReceived.bind(this));
+            this.boundOnBatteryReceived);
         } catch (e) {
           console.warn('Error stopping battery notifications:', e);
         }
@@ -163,7 +176,7 @@ export class BLEManager {
         try {
           await this.dshotResponseCharacteristic.stopNotifications();
           this.dshotResponseCharacteristic.removeEventListener('characteristicvaluechanged',
-            this.onDSHOTResponse.bind(this));
+            this.boundOnDSHOTResponse);
         } catch (e) {
           console.warn('Error stopping DSHOT response notifications:', e);
         }
@@ -221,7 +234,21 @@ export class BLEManager {
       return;
     }
     
-    console.log('Device disconnected');
+    console.log('Device disconnected unexpectedly');
+    
+    // Stop heartbeat immediately
+    this.stopHeartbeat();
+    
+    // Clear all references to allow reconnection
+    this.server = null;
+    this.dataCharacteristic = null;
+    this.batteryCharacteristic = null;
+    this.configCharacteristic = null;
+    this.commandCharacteristic = null;
+    this.dshotCommandCharacteristic = null;
+    this.dshotResponseCharacteristic = null;
+    
+    // Notify app of disconnect
     if (this.connectionCallback) {
       this.connectionCallback(false);
     }
@@ -274,7 +301,15 @@ export class BLEManager {
 
     const buffer = BLEDataParser.encodeConfig(config);
     await this.configCharacteristic.writeValue(buffer);
-    console.log('Config sent:', config);
+    
+    // Store config for heartbeat
+    this.lastConfig = config;
+    
+    // Start heartbeat timer if not already running
+    if (!this.heartbeatTimer) {
+      console.log('Config sent, starting heartbeat');
+      this.startHeartbeat();
+    }
   }
 
   async sendCommand(command: ESCCommandPacket): Promise<void> {
@@ -349,6 +384,45 @@ export class BLEManager {
 
   isConnected(): boolean {
     return this.server?.connected ?? false;
+  }
+  
+  private startHeartbeat(): void {
+    // Stop any existing timer
+    this.stopHeartbeat();
+    
+    console.log('Heartbeat started - PING every 2s');
+    
+    // Send lightweight ping command every 2 seconds as heartbeat
+    this.heartbeatTimer = window.setInterval(async () => {
+      // Check if we're actually connected before sending
+      if (!this.isConnected() || !this.commandCharacteristic) {
+        console.warn('Heartbeat stopped - not connected');
+        this.stopHeartbeat();
+        return;
+      }
+      
+      try {
+        // Send PING command (command 4, throttle 0)
+        const buffer = new ArrayBuffer(5);
+        const view = new DataView(buffer);
+        view.setUint8(0, 4); // PING command
+        view.setFloat32(1, 0, true); // throttle (unused for ping)
+        
+        await this.commandCharacteristic.writeValue(buffer);
+        // Don't log success to avoid console spam
+      } catch (err) {
+        console.error('Heartbeat write failed:', err);
+        // Don't stop heartbeat on transient errors - let it retry next interval
+        // Only stop if connection is actually dead (checked at top of next interval)
+      }
+    }, 2000);
+  }
+  
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer !== null) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
   }
 
   getDeviceId(): string | null {

@@ -101,6 +101,7 @@ export interface DSHOTDisplaySettings {
   moi: number;
   moiUnit: MOIUnit;
   tipSpeedUnit: TipSpeedUnit;
+  gearRatio: number; // Motor RPM / Output RPM (e.g., 3.0 for 3:1 reduction)
 }
 
 // PWM Data Packet (13 bytes)
@@ -114,11 +115,11 @@ export interface PWMDataPacket {
 // DSHOT Data Packet (31 bytes) - PWM data + telemetry
 export interface DSHOTDataPacket extends PWMDataPacket {
   rpm: number;          // uint32_t (4 bytes)
-  temp: number;         // uint32_t (4 bytes)
   escVoltage: number;   // float (4 bytes)
   escCurrent: number;   // uint32_t (4 bytes)
-  lastStatus: number;   // uint32_t (4 bytes)
-  stress: number;       // uint32_t (4 bytes)
+  temp: number;         // uint16_t (2 bytes)
+  lastStatus: number;   // uint16_t (2 bytes)
+  stress: number;       // uint16_t (2 bytes)
 }
 
 // ESC Config Packet (19 bytes)

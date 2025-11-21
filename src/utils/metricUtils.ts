@@ -38,7 +38,8 @@ export function getMetricValue(
           dshotSettings.diameterUnit,
           dshotSettings.moi,
           dshotSettings.moiUnit,
-          dshotSettings.tipSpeedUnit
+          dshotSettings.tipSpeedUnit,
+          dshotSettings.gearRatio
         );
         return metrics.tipSpeed;
       }
@@ -51,7 +52,8 @@ export function getMetricValue(
           dshotSettings.diameterUnit,
           dshotSettings.moi,
           dshotSettings.moiUnit,
-          dshotSettings.tipSpeedUnit
+          dshotSettings.tipSpeedUnit,
+          dshotSettings.gearRatio
         );
         return metrics.kineticEnergy;
       }
