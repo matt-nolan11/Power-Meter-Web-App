@@ -18,8 +18,14 @@ export function getMetricValue(
       return data.voltage * data.current;
     case MetricType.THROTTLE:
       return data.throttle;
-    case MetricType.RPM:
+    case MetricType.MOTOR_RPM:
       return 'rpm' in data ? data.rpm : null;
+    case MetricType.OUTPUT_RPM:
+      if ('rpm' in data && dshotSettings) {
+        // Apply gear ratio: output RPM = motor RPM / gear ratio
+        return data.rpm / dshotSettings.gearRatio;
+      }
+      return null;
     case MetricType.ESC_VOLTAGE:
       return 'escVoltage' in data ? data.escVoltage : null;
     case MetricType.ESC_CURRENT:
@@ -78,7 +84,8 @@ export function formatMetricValue(value: number | null, metric: MetricType): str
     case MetricType.THROTTLE:
     case MetricType.ESC_STRESS:
       return value.toFixed(1);
-    case MetricType.RPM:
+    case MetricType.MOTOR_RPM:
+    case MetricType.OUTPUT_RPM:
       return Math.round(value).toLocaleString();
     case MetricType.ESC_TEMP:
     case MetricType.ESC_STATUS:

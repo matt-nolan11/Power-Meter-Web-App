@@ -454,8 +454,9 @@ function App() {
     const usedMetrics = new Set(dataCards.map(card => card.metric));
     const isDSHOT = escConfig.mode === ESCMode.DSHOT;
     const availableMetrics = Object.values(MetricType).filter(metric => {
-      if ([MetricType.RPM, MetricType.ESC_VOLTAGE, MetricType.ESC_CURRENT, 
-           MetricType.ESC_TEMP, MetricType.ESC_STATUS, MetricType.ESC_STRESS].includes(metric)) {
+      if ([MetricType.MOTOR_RPM, MetricType.OUTPUT_RPM, MetricType.ESC_VOLTAGE, MetricType.ESC_CURRENT, 
+           MetricType.ESC_TEMP, MetricType.ESC_STATUS, MetricType.ESC_STRESS, 
+           MetricType.TIP_SPEED, MetricType.KINETIC_ENERGY].includes(metric)) {
         return isDSHOT;
       }
       return true;

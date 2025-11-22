@@ -47,6 +47,12 @@ export class BLEManager {
   private boundOnDataReceived = this.onDataReceived.bind(this);
   private boundOnBatteryReceived = this.onBatteryReceived.bind(this);
   private boundOnDSHOTResponse = this.onDSHOTResponse.bind(this);
+  
+  // Reconnection delay tracking
+  private lastDisconnectTime: number = 0;
+  private consecutiveFailures: number = 0;
+  private static readonly MIN_RECONNECT_DELAY_MS = 500; // Minimum delay between disconnect and reconnect
+  private static readonly MAX_RECONNECT_DELAY_MS = 5000; // Maximum delay for exponential backoff
 
   async connect(): Promise<void> {
     try {
@@ -61,6 +67,24 @@ export class BLEManager {
         ],
         optionalServices: [BLE_SERVICE_UUID]
       });
+
+      // CRITICAL: Enforce delay AFTER device selection to allow browser GATT cleanup
+      // This prevents reconnection failures where browser connects at HCI level
+      // but fails during GATT service discovery due to stale internal state
+      const timeSinceDisconnect = Date.now() - this.lastDisconnectTime;
+      const baseDelay = BLEManager.MIN_RECONNECT_DELAY_MS;
+      
+      // Exponential backoff on repeated failures: 500ms, 1000ms, 2000ms, 4000ms, 5000ms
+      const backoffDelay = Math.min(
+        baseDelay * Math.pow(2, this.consecutiveFailures),
+        BLEManager.MAX_RECONNECT_DELAY_MS
+      );
+      
+      if (timeSinceDisconnect < backoffDelay) {
+        const remainingDelay = backoffDelay - timeSinceDisconnect;
+        console.log(`Waiting ${remainingDelay}ms before reconnecting (attempt ${this.consecutiveFailures + 1})`);
+        await new Promise(resolve => setTimeout(resolve, remainingDelay));
+      }
 
       // Add disconnect listener (using bound handler for proper cleanup)
       this.device.addEventListener('gattserverdisconnected', this.boundOnDisconnected);
@@ -128,11 +152,19 @@ export class BLEManager {
 
       console.log('Started notifications');
       
+      // Reset failure counter on successful connection
+      this.consecutiveFailures = 0;
+      
       if (this.connectionCallback) {
         this.connectionCallback(true);
       }
     } catch (error) {
       console.error('BLE connection error:', error);
+      
+      // Increment failure counter for exponential backoff
+      this.consecutiveFailures++;
+      this.lastDisconnectTime = Date.now();
+      
       throw error;
     }
   }
@@ -210,6 +242,10 @@ export class BLEManager {
 
       console.log('BLE: Cleanly disconnected');
       
+      // Record disconnect time for reconnection delay
+      this.lastDisconnectTime = Date.now();
+      this.consecutiveFailures = 0; // Reset on clean disconnect
+      
       // Reset flag after cleanup
       this.isDisconnecting = false;
     } catch (error) {
@@ -234,6 +270,10 @@ export class BLEManager {
     }
     
     console.log('Device disconnected unexpectedly');
+    
+    // Record disconnect time for reconnection delay
+    this.lastDisconnectTime = Date.now();
+    // Don't increment failure counter on unexpected disconnect - might be intentional device restart
     
     // Stop heartbeat immediately
     this.stopHeartbeat();
