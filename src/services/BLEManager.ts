@@ -41,7 +41,6 @@ export class BLEManager {
   
   // Heartbeat to keep connection alive
   private heartbeatTimer: number | null = null;
-  private lastConfig: ESCConfigPacket | null = null;
   
   // Bound event handlers (to allow proper removal)
   private boundOnDisconnected = this.onDisconnected.bind(this);
@@ -301,9 +300,6 @@ export class BLEManager {
 
     const buffer = BLEDataParser.encodeConfig(config);
     await this.configCharacteristic.writeValue(buffer);
-    
-    // Store config for heartbeat
-    this.lastConfig = config;
     
     // Start heartbeat timer if not already running
     if (!this.heartbeatTimer) {
