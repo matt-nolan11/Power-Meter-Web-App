@@ -122,10 +122,11 @@ export interface DSHOTDataPacket extends PWMDataPacket {
   stress: number;       // uint16_t (2 bytes)
 }
 
-// ESC Config Packet (19 bytes)
+// ESC Config Packet (21 bytes)
 export interface ESCConfigPacket {
   mode: ESCMode;              // uint8_t (1 byte)
   escType: ESCType;           // uint8_t (1 byte)
+  dshotSpeed: DSHOTSpeed;     // uint16_t (2 bytes)
   throttleMin: number;        // uint16_t (2 bytes)
   throttleMax: number;        // uint16_t (2 bytes)
   rampUpRate: number;         // uint16_t (2 bytes)
@@ -192,22 +193,23 @@ export class BLEDataParser {
   }
 
   static encodeConfig(config: ESCConfigPacket): ArrayBuffer {
-    const buffer = new ArrayBuffer(19);
+    const buffer = new ArrayBuffer(21);
     const view = new DataView(buffer);
     
     view.setUint8(0, config.mode);
     view.setUint8(1, config.escType);
-    view.setUint16(2, config.throttleMin, this.littleEndian);
-    view.setUint16(4, config.throttleMax, this.littleEndian);
-    view.setUint16(6, config.rampUpRate, this.littleEndian);
-    view.setUint16(8, config.rampDownRate, this.littleEndian);
-    view.setUint8(10, config.rampUpEnabled ? 1 : 0);
-    view.setUint8(11, config.rampDownEnabled ? 1 : 0);
-    view.setUint8(12, config.batteryCells);
-    view.setUint16(13, config.batteryCutoff, this.littleEndian); // millivolts
-    view.setUint16(15, config.batteryWarningDelta, this.littleEndian); // millivolts
-    view.setUint8(17, config.batteryProtectionEnabled ? 1 : 0);
-    view.setUint8(18, config.motorPoles);
+    view.setUint16(2, config.dshotSpeed, this.littleEndian);
+    view.setUint16(4, config.throttleMin, this.littleEndian);
+    view.setUint16(6, config.throttleMax, this.littleEndian);
+    view.setUint16(8, config.rampUpRate, this.littleEndian);
+    view.setUint16(10, config.rampDownRate, this.littleEndian);
+    view.setUint8(12, config.rampUpEnabled ? 1 : 0);
+    view.setUint8(13, config.rampDownEnabled ? 1 : 0);
+    view.setUint8(14, config.batteryCells);
+    view.setUint16(15, config.batteryCutoff, this.littleEndian); // millivolts
+    view.setUint16(17, config.batteryWarningDelta, this.littleEndian); // millivolts
+    view.setUint8(19, config.batteryProtectionEnabled ? 1 : 0);
+    view.setUint8(20, config.motorPoles);
     
     return buffer;
   }

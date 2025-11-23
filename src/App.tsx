@@ -8,6 +8,7 @@ import {
   BatteryStatusPacket,
   ESCMode,
   ESCType,
+  DSHOTSpeed,
   BatteryState,
   ESCConfigPacket,
   ESCCommandPacket,
@@ -66,6 +67,7 @@ function App() {
   const [escConfig, setEscConfig] = useState<ESCConfigPacket>({
     mode: ESCMode.PWM,
     escType: ESCType.UNIDIRECTIONAL,
+    dshotSpeed: DSHOTSpeed.DSHOT600,
     throttleMin: 1000,
     throttleMax: 2000,
     rampUpRate: 50,      // %/s (changed from 500 μs/s)

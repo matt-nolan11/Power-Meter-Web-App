@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { 
   ESCConfigPacket, 
   ESCMode, 
-  ESCType, 
+  ESCType,
+  DSHOTSpeed,
   DSHOTDisplaySettings,
   DiameterUnit,
   MOIUnit,
@@ -105,6 +106,28 @@ const ESCControl: React.FC<ESCControlProps> = ({
               </div>
             </div>
           </div>
+
+          {/* DSHOT Speed Selector - only show in DSHOT mode */}
+          {config.mode === ESCMode.DSHOT && (
+            <div className="form-group" style={{ marginTop: '1rem' }}>
+              <label className="form-label">DSHOT Speed</label>
+              <select
+                className="form-input"
+                value={config.dshotSpeed}
+                onChange={(e) => onConfigChange({ dshotSpeed: Number(e.target.value) as DSHOTSpeed })}
+                disabled={escConnected || running}
+              >
+                <option value={DSHOTSpeed.DSHOT150}>DSHOT150</option>
+                <option value={DSHOTSpeed.DSHOT300}>DSHOT300</option>
+                <option value={DSHOTSpeed.DSHOT600}>DSHOT600 (Recommended)</option>
+                <option value={DSHOTSpeed.DSHOT1200}>DSHOT1200</option>
+                <option value={DSHOTSpeed.DSHOT2400}>DSHOT2400</option>
+              </select>
+              <small style={{ color: '#888', marginTop: '0.25rem', display: 'block' }}>
+                Higher speeds = faster updates. Most ESCs support DSHOT600.
+              </small>
+            </div>
+          )}
 
           {/* Safety Warning - only show when not connected */}
           {!escConnected && (
